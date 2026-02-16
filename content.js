@@ -1,4 +1,5 @@
-// VERSÃO MELHORADA COM UI FLUTUANTE
+// ==================== AUTOMATION FRAMEWORK STYLE ====================
+// Simula Selenium/Playwright/Cypress
 let isRunning = false;
 let fillSpeed = 500;
 let floatingUI = null;
@@ -17,6 +18,140 @@ function random(arr) {
 
 function randomNum(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// ==================== AUTOMATION HELPERS ====================
+// Simula interação humana real como Selenium faz
+
+function humanTypeCharacter(element, char) {
+  // Simula pressionar uma tecla como humano
+  const keydownEvent = new KeyboardEvent('keydown', {
+    key: char,
+    code: `Key${char.toUpperCase()}`,
+    charCode: char.charCodeAt(0),
+    keyCode: char.charCodeAt(0),
+    which: char.charCodeAt(0),
+    bubbles: true,
+    cancelable: true
+  });
+  
+  const keypressEvent = new KeyboardEvent('keypress', {
+    key: char,
+    code: `Key${char.toUpperCase()}`,
+    charCode: char.charCodeAt(0),
+    keyCode: char.charCodeAt(0),
+    which: char.charCodeAt(0),
+    bubbles: true,
+    cancelable: true
+  });
+  
+  const inputEvent = new InputEvent('input', {
+    data: char,
+    inputType: 'insertText',
+    bubbles: true,
+    cancelable: true
+  });
+  
+  const keyupEvent = new KeyboardEvent('keyup', {
+    key: char,
+    code: `Key${char.toUpperCase()}`,
+    charCode: char.charCodeAt(0),
+    keyCode: char.charCodeAt(0),
+    which: char.charCodeAt(0),
+    bubbles: true,
+    cancelable: true
+  });
+  
+  element.dispatchEvent(keydownEvent);
+  element.dispatchEvent(keypressEvent);
+  element.dispatchEvent(inputEvent);
+  element.dispatchEvent(keyupEvent);
+}
+
+async function humanType(element, text, delayBetweenChars = 50) {
+  // Simula digitação humana caractere por caractere
+  element.focus();
+  
+  // Limpar campo primeiro
+  element.value = '';
+  
+  // Disparar evento de focus
+  element.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+  
+  // Digitar cada caractere
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    
+    // Atualizar valor
+    element.value += char;
+    
+    // Disparar eventos de tecla
+    humanTypeCharacter(element, char);
+    
+    // Aguardar um pouco (simula velocidade de digitação humana)
+    await new Promise(r => setTimeout(r, delayBetweenChars));
+  }
+  
+  // Disparar eventos finais
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+  element.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+}
+
+function humanClick(element) {
+  // Simula clique humano completo
+  const rect = element.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  
+  const mousedownEvent = new MouseEvent('mousedown', {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    clientX: x,
+    clientY: y
+  });
+  
+  const mouseupEvent = new MouseEvent('mouseup', {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    clientX: x,
+    clientY: y
+  });
+  
+  const clickEvent = new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    clientX: x,
+    clientY: y
+  });
+  
+  element.dispatchEvent(mousedownEvent);
+  element.dispatchEvent(mouseupEvent);
+  element.dispatchEvent(clickEvent);
+}
+
+function setReactValue(element, value) {
+  // Técnica específica para React (usado por Selenium/Playwright)
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    'value'
+  )?.set;
+  
+  const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLTextAreaElement.prototype,
+    'value'
+  )?.set;
+  
+  if (element.tagName === 'TEXTAREA' && nativeTextAreaValueSetter) {
+    nativeTextAreaValueSetter.call(element, value);
+  } else if (nativeInputValueSetter) {
+    nativeInputValueSetter.call(element, value);
+  }
+  
+  // Disparar evento de input (React precisa disso)
+  element.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 // ==================== UI FLUTUANTE ====================
@@ -221,7 +356,7 @@ function createFloatingUI() {
     <div class="sff-status" id="sff-status">Pronto para preencher</div>
     
     <div class="sff-info">
-      ℹ️ Preenche automaticamente com dados fictícios e avança páginas.
+      ℹ️ Simula automação tipo Selenium/Playwright
     </div>
   `;
   
@@ -246,7 +381,7 @@ function createFloatingUI() {
     stopBtn.disabled = false;
     status.className = 'sff-status active';
     status.textContent = '✅ Preenchimento ativo';
-    fillAllFields();
+    automateForm();
   });
   
   stopBtn.addEventListener('click', () => {
@@ -263,7 +398,6 @@ function createFloatingUI() {
     isRunning = false;
   });
   
-  // Tornar arrastável
   makeDraggable(floatingUI);
 }
 
@@ -298,16 +432,14 @@ function makeDraggable(element) {
   }
 }
 
-// ==================== DETECÇÃO E PREENCHIMENTO MELHORADOS ====================
-function smartDetectFieldType(field) {
+// ==================== DETECÇÃO INTELIGENTE ====================
+function detectFieldType(field) {
   const name = (field.name || '').toLowerCase();
   const id = (field.id || '').toLowerCase();
   const placeholder = (field.placeholder || '').toLowerCase();
   const type = (field.type || 'text').toLowerCase();
-  const ariaLabel = (field.getAttribute('aria-label') || '').toLowerCase();
   const autocomplete = (field.getAttribute('autocomplete') || '').toLowerCase();
   
-  // Pegar label associado
   let labelText = '';
   if (field.id) {
     const label = document.querySelector(`label[for="${field.id}"]`);
@@ -316,256 +448,146 @@ function smartDetectFieldType(field) {
   const parentLabel = field.closest('label');
   if (parentLabel) labelText += ' ' + parentLabel.textContent.toLowerCase();
   
-  const combined = `${name} ${id} ${placeholder} ${ariaLabel} ${autocomplete} ${labelText}`;
+  const combined = `${name} ${id} ${placeholder} ${autocomplete} ${labelText}`;
   
-  // Email (prioridade alta)
-  if (type === 'email' || autocomplete.includes('email') || /\bemail\b|e-mail|correo/i.test(combined)) {
-    return 'email';
-  }
-  
-  // Telefone
-  if (type === 'tel' || autocomplete.includes('tel') || /\bphone\b|telephone|telefone|celular|móvel|mobile|cell/i.test(combined)) {
-    return 'phone';
-  }
-  
-  // Data de nascimento
-  if (type === 'date' || autocomplete.includes('bday') || /birth|nascimento|\bbday\b|date.*birth|data.*nasc/i.test(combined)) {
-    return 'birthdate';
-  }
-  
-  // Nome completo
-  if (autocomplete === 'name' || /full.*name|nome.*completo|your.*name/i.test(combined)) {
-    return 'fullName';
-  }
-  
-  // Primeiro nome
-  if (autocomplete.includes('given-name') || /first.*name|nome.*próprio|given.*name|primer.*nombre/i.test(combined)) {
-    return 'firstName';
-  }
-  
-  // Sobrenome
-  if (autocomplete.includes('family-name') || /last.*name|surname|sobrenome|apelido|family.*name|apellido/i.test(combined)) {
-    return 'lastName';
-  }
-  
-  // Endereço
-  if (autocomplete.includes('address') || /address.*line|street|rua|calle|endereço|morada/i.test(combined)) {
-    return 'address';
-  }
-  
-  // Cidade
-  if (autocomplete.includes('city') || /\bcity\b|cidade|ciudad/i.test(combined)) {
-    return 'city';
-  }
-  
-  // Estado/Província
-  if (autocomplete.includes('state') || /\bstate\b|estado|província|province/i.test(combined)) {
-    return 'state';
-  }
-  
-  // CEP/Código Postal
-  if (autocomplete.includes('postal') || /zip.*code|postal.*code|cep|código.*postal/i.test(combined)) {
-    return 'zip';
-  }
-  
-  // País
-  if (autocomplete.includes('country') || /\bcountry\b|país|pais/i.test(combined)) {
-    return 'country';
-  }
-  
-  // Empresa
-  if (autocomplete.includes('organization') || /company|employer|empresa|organization/i.test(combined)) {
-    return 'company';
-  }
-  
-  // SSN/CPF
-  if (/ssn|social.*security|cpf|tax.*id/i.test(combined)) {
-    return 'ssn';
-  }
-  
-  // Número genérico
-  if (type === 'number' || /\bage\b|quantidade|amount/i.test(combined)) {
-    return 'number';
-  }
-  
-  // URL
-  if (type === 'url' || /website|site|url/i.test(combined)) {
-    return 'url';
-  }
+  if (type === 'email' || /email|e-mail/.test(combined)) return 'email';
+  if (type === 'tel' || /phone|tel|celular|mobile/.test(combined)) return 'phone';
+  if (type === 'date' || /birth|nascimento|bday|date/.test(combined)) return 'date';
+  if (/first.*name|given.*name|nome.*próprio/.test(combined)) return 'firstName';
+  if (/last.*name|surname|sobrenome|family.*name/.test(combined)) return 'lastName';
+  if (/full.*name|nome.*completo/.test(combined)) return 'fullName';
+  if (/address|street|rua/.test(combined)) return 'address';
+  if (/city|cidade/.test(combined)) return 'city';
+  if (/state|estado/.test(combined)) return 'state';
+  if (/zip|postal|cep/.test(combined)) return 'zip';
+  if (/country|país/.test(combined)) return 'country';
+  if (/company|employer|empresa/.test(combined)) return 'company';
   
   return 'text';
 }
 
-function generateSmartValue(fieldType) {
+function generateValue(fieldType) {
   const firstName = random(FICTIONAL_DATA.firstNames);
   const lastName = random(FICTIONAL_DATA.lastNames);
   
   switch (fieldType) {
-    case 'email':
-      return `${firstName.toLowerCase()}.${lastName.toLowerCase()}@swordhealth.com`;
-    case 'phone':
-      return `(${randomNum(200,999)}) ${randomNum(200,999)}-${randomNum(1000,9999)}`;
-    case 'birthdate':
-      return '11/11/2000';
-    case 'firstName':
-      return firstName;
-    case 'lastName':
-      return lastName;
-    case 'fullName':
-      return `${firstName} ${lastName}`;
-    case 'address':
-      return `${randomNum(100,9999)} Main Street`;
-    case 'city':
-      return random(FICTIONAL_DATA.cities);
-    case 'state':
-      return random(FICTIONAL_DATA.states);
-    case 'zip':
-      return String(randomNum(10000, 99999));
-    case 'country':
-      return 'United States';
-    case 'company':
-      return random(FICTIONAL_DATA.companies);
-    case 'ssn':
-      return `${randomNum(100,999)}-${randomNum(10,99)}-${randomNum(1000,9999)}`;
-    case 'number':
-      return String(randomNum(18, 65));
-    case 'url':
-      return 'https://www.example.com';
-    default:
-      return `${firstName} ${lastName}`;
+    case 'email': return `${firstName.toLowerCase()}.${lastName.toLowerCase()}@swordhealth.com`;
+    case 'phone': return `(${randomNum(200,999)}) ${randomNum(200,999)}-${randomNum(1000,9999)}`;
+    case 'date': return '11/11/2000';
+    case 'firstName': return firstName;
+    case 'lastName': return lastName;
+    case 'fullName': return `${firstName} ${lastName}`;
+    case 'address': return `${randomNum(100,9999)} Main Street`;
+    case 'city': return random(FICTIONAL_DATA.cities);
+    case 'state': return random(FICTIONAL_DATA.states);
+    case 'zip': return String(randomNum(10000, 99999));
+    case 'country': return 'United States';
+    case 'company': return random(FICTIONAL_DATA.companies);
+    default: return `${firstName} ${lastName}`;
   }
 }
 
-async function smartFillField(field) {
-  const type = field.type?.toLowerCase();
-  const tag = field.tagName;
+// ==================== AUTOMAÇÃO PRINCIPAL ====================
+async function automateForm() {
+  console.log('🤖 Iniciando automação estilo Selenium...');
   
-  // Checkbox
-  if (type === 'checkbox') {
-    if (!field.checked) {
-      field.checked = true;
-      field.dispatchEvent(new Event('change', { bubbles: true }));
-      field.dispatchEvent(new Event('click', { bubbles: true }));
-    }
-    return true;
-  }
-  
-  // Radio
-  if (type === 'radio') {
-    const name = field.name;
-    if (!document.querySelector(`input[type="radio"][name="${name}"]:checked`)) {
-      field.checked = true;
-      field.dispatchEvent(new Event('change', { bubbles: true }));
-      field.dispatchEvent(new Event('click', { bubbles: true }));
-    }
-    return true;
-  }
-  
-  // Select
-  if (tag === 'SELECT') {
-    if (field.options.length > 1) {
-      field.selectedIndex = 1;
-      field.dispatchEvent(new Event('change', { bubbles: true }));
-      field.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    return true;
-  }
-  
-  // Pular se já preenchido
-  if (field.value && field.value.trim() !== '') {
-    return false;
-  }
-  
-  // Input/Textarea
-  const fieldType = smartDetectFieldType(field);
-  let value = generateSmartValue(fieldType);
-  
-  // Para type="date" usar formato ISO
-  if (type === 'date' && fieldType === 'birthdate') {
-    value = '2000-11-11';
-  }
-  
-  // Preencher com múltiplas técnicas
-  field.focus();
-  
-  // Técnica 1: Setter nativo (para React)
-  try {
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-    if (setter) setter.call(field, value);
-  } catch (e) {}
-  
-  // Técnica 2: Diretamente
-  field.value = value;
-  
-  // Disparar eventos
-  ['input', 'change', 'blur', 'keyup'].forEach(event => {
-    field.dispatchEvent(new Event(event, { bubbles: true }));
-  });
-  
-  console.log(`✓ ${fieldType}: ${value}`);
-  return true;
-}
-
-async function fillAllFields() {
-  console.log('=== INICIANDO PREENCHIMENTO ===');
-  
-  const allElements = document.querySelectorAll('input, select, textarea');
+  const elements = document.querySelectorAll('input, select, textarea');
   let filled = 0;
   
-  for (const element of allElements) {
+  for (const element of elements) {
     if (!isRunning) break;
     
-    const type = element.type;
+    const type = element.type?.toLowerCase();
+    const tag = element.tagName;
     
-    if (type === 'hidden' || type === 'submit' || type === 'button' || element.disabled) {
-      continue;
-    }
+    if (type === 'hidden' || type === 'submit' || type === 'button' || element.disabled) continue;
     
     try {
-      const wasFilled = await smartFillField(element);
-      if (wasFilled) {
+      // CHECKBOX
+      if (type === 'checkbox' && !element.checked) {
+        humanClick(element);
         filled++;
+        console.log('✓ Checkbox marcado');
         await new Promise(r => setTimeout(r, fillSpeed));
+        continue;
       }
+      
+      // RADIO
+      if (type === 'radio') {
+        const name = element.name;
+        if (!document.querySelector(`input[type="radio"][name="${name}"]:checked`)) {
+          humanClick(element);
+          filled++;
+          console.log('✓ Radio selecionado');
+          await new Promise(r => setTimeout(r, fillSpeed));
+        }
+        continue;
+      }
+      
+      // SELECT
+      if (tag === 'SELECT' && element.options.length > 1) {
+        element.selectedIndex = 1;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        filled++;
+        console.log(`✓ Select: ${element.options[1].text}`);
+        await new Promise(r => setTimeout(r, fillSpeed));
+        continue;
+      }
+      
+      // INPUT/TEXTAREA
+      if (element.value && element.value.trim() !== '') continue;
+      
+      const fieldType = detectFieldType(element);
+      let value = generateValue(fieldType);
+      
+      if (type === 'date' && fieldType === 'date') {
+        value = '2000-11-11';
+      }
+      
+      // Usar técnica de digitação humana
+      await humanType(element, value, 30);
+      
+      // Também usar técnica React por segurança
+      setReactValue(element, value);
+      
+      filled++;
+      console.log(`✓ ${fieldType}: ${value}`);
+      await new Promise(r => setTimeout(r, fillSpeed));
+      
     } catch (error) {
       console.error('Erro:', error);
     }
   }
   
-  console.log(`=== CONCLUÍDO: ${filled} campos preenchidos ===`);
+  console.log(`✅ Automação concluída: ${filled} campos`);
   
   await new Promise(r => setTimeout(r, 1000));
   
-  // Procurar botão
+  // Procurar e clicar botão
   const buttons = document.querySelectorAll('button, input[type="submit"], a');
   for (const btn of buttons) {
     const text = (btn.textContent || btn.value || '').toLowerCase();
-    if (/next|continue|submit|continuar|seguinte|enviar|avançar|save/.test(text)) {
-      console.log(`✓ Clicando: "${btn.textContent || btn.value}"`);
-      btn.click();
-      await new Promise(r => setTimeout(r, 2000));
-      if (isRunning) fillAllFields();
+    if (/next|continue|submit|continuar|seguinte|enviar|save|avançar/.test(text)) {
+      console.log(`🔘 Clicando: "${btn.textContent || btn.value}"`);
+      humanClick(btn);
+      await new Promise(r => setTimeout(r, 2500));
+      if (isRunning) automateForm();
       return;
     }
   }
 }
 
-// ==================== LISTENERS ====================
+// ==================== INICIALIZAÇÃO ====================
 chrome.runtime.onMessage.addListener((request) => {
   if (request.action === 'start') {
     createFloatingUI();
     const startBtn = floatingUI?.querySelector('#sff-start-btn');
     if (startBtn) startBtn.click();
-  } else if (request.action === 'stop') {
-    isRunning = false;
   }
 });
 
-// Auto-criar UI quando a página carregar
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(createFloatingUI, 500);
-  });
+  document.addEventListener('DOMContentLoaded', () => setTimeout(createFloatingUI, 500));
 } else {
   setTimeout(createFloatingUI, 500);
 }
