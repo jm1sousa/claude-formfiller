@@ -209,6 +209,26 @@ async function fillField(field, value) {
   // Limpar campo
   field.value = '';
   
+  // Para campos de data com date picker
+  if (field.type === 'text' && (field.placeholder || '').toLowerCase().includes('mm/dd/yyyy')) {
+    // Tentar preencher diretamente primeiro
+    field.value = value;
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    // Se tem ícone de calendário, clicar nele e selecionar data
+    const calendarIcon = field.parentElement.querySelector('[class*="calendar"], [class*="icon"], button');
+    if (calendarIcon) {
+      calendarIcon.click();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Procurar e clicar no dia 11 no calendário
+      await selectDateFromPicker();
+    }
+    
+    return;
+  }
+  
   // Para campos autocomplete/searchable selects - SIMPLIFICADO
   const role = field.getAttribute('role');
   const ariaAutocomplete = field.getAttribute('aria-autocomplete');
@@ -266,6 +286,38 @@ async function fillField(field, value) {
   field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
   field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
   field.blur();
+}
+
+// Selecionar data do calendário popup
+async function selectDateFromPicker() {
+  // Aguardar calendário abrir
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  // Procurar botões/células com o número 11
+  const daySelectors = [
+    'button:not([disabled])',
+    'div[role="button"]',
+    'td[role="button"]',
+    '[class*="day"]',
+    '[class*="cell"]'
+  ];
+  
+  for (const selector of daySelectors) {
+    const days = document.querySelectorAll(selector);
+    
+    for (const day of days) {
+      const text = day.textContent.trim();
+      // Procurar exatamente o número 11
+      if (text === '11' && day.offsetParent !== null && !day.disabled) {
+        console.log('Clicando no dia 11 do calendário');
+        day.click();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 // Simular digitação caractere por caractere - REMOVIDO (não usado mais)
