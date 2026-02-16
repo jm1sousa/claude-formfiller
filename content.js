@@ -1,22 +1,20 @@
-// Dados fictícios - Personagens famosos
+// ==================== DADOS FICTÍCIOS ====================
 const FICTIONAL_DATA = {
   firstNames: ['Harry', 'Hermione', 'Frodo', 'Aragorn', 'Leia', 'Luke', 'Katniss', 'Jon', 'Daenerys', 'Sherlock', 
                'Tony', 'Bruce', 'Peter', 'Diana', 'Clark', 'Barry', 'Eleven', 'Rick', 'Morty', 'Walter'],
   lastNames: ['Potter', 'Granger', 'Baggins', 'Stark', 'Skywalker', 'Everdeen', 'Snow', 'Targaryen', 'Holmes', 
               'Stark', 'Wayne', 'Parker', 'Prince', 'Kent', 'Allen', 'Sanchez', 'White', 'Lannister', 'Solo'],
-  streets: ['Privet Drive', 'Baker Street', 'Bag End', 'Winterfell Road', 'Tatooine Ave', 'District 12 St', 
-            'Kings Landing Blvd', '221B Lane', 'Stark Tower', 'Wayne Manor Drive'],
-  cities: ['Gotham', 'Metropolis', 'Hogsmeade', 'Rivendell', 'Mos Eisley', 'Panem City', 'Westeros', 
-           'London', 'New York', 'Central City'],
-  companies: ['Stark Industries', 'Wayne Enterprises', 'Umbrella Corp', 'Cyberdyne Systems', 'Oscorp', 
-              'Daily Planet', 'Wonka Industries', 'Monsters Inc', 'Aperture Science']
+  streets: ['Privet Drive', 'Baker Street', 'Bag End', 'Winterfell Road', 'Tatooine Ave', 'District 12 St'],
+  cities: ['Gotham', 'Metropolis', 'Hogsmeade', 'Rivendell', 'Mos Eisley', 'Panem City', 'Westeros'],
+  companies: ['Stark Industries', 'Wayne Enterprises', 'Umbrella Corp', 'Cyberdyne Systems', 'Oscorp'],
+  states: ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut']
 };
 
 let isRunning = false;
 let fillSpeed = 500;
 let currentTimeout = null;
 
-// Gerar dados aleatórios
+// ==================== UTILITÁRIOS ====================
 function random(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -26,435 +24,483 @@ function randomNumber(min, max) {
 }
 
 function generateEmail(firstName, lastName) {
-  const formats = [
-    `${firstName.toLowerCase()}.${lastName.toLowerCase()}@swordhealth.com`,
-    `${firstName.toLowerCase()}${lastName.toLowerCase()}@swordhealth.com`,
-    `${firstName[0].toLowerCase()}${lastName.toLowerCase()}@swordhealth.com`,
-    `${firstName.toLowerCase()}_${lastName.toLowerCase()}@swordhealth.com`
-  ];
-  return random(formats);
+  return `${firstName.toLowerCase()}.${lastName.toLowerCase()}@swordhealth.com`;
 }
 
 function generatePhone() {
-  return `+1 ${randomNumber(200, 999)}-${randomNumber(100, 999)}-${randomNumber(1000, 9999)}`;
+  return `${randomNumber(200, 999)}-${randomNumber(100, 999)}-${randomNumber(1000, 9999)}`;
 }
 
-function generateZipCode() {
-  return `${randomNumber(10000, 99999)}`;
-}
-
-function generateDate(field) {
-  // SEMPRE usar 11/11/2000 para todos os campos de data
-  const placeholder = (field.placeholder || '').toLowerCase();
-  
-  if (placeholder.includes('dd/mm/yyyy') || placeholder.includes('day/month/year')) {
-    return '11/11/2000';
-  }
-  
-  // Formato padrão ISO para inputs type="date"
-  if (field.type === 'date') {
-    return '2000-11-11';
-  }
-  
-  // Formato americano por padrão (MM/DD/YYYY)
-  return '11/11/2000';
-}
-
-function generateSSN() {
-  return `${randomNumber(100, 999)}-${randomNumber(10, 99)}-${randomNumber(1000, 9999)}`;
-}
-
-// Detectar tipo de campo
+// ==================== DETECTAR TIPO DE CAMPO ====================
 function detectFieldType(field) {
   const name = (field.name || '').toLowerCase();
   const id = (field.id || '').toLowerCase();
   const placeholder = (field.placeholder || '').toLowerCase();
-  const label = getFieldLabel(field);
   const type = (field.type || '').toLowerCase();
+  const ariaLabel = (field.getAttribute('aria-label') || '').toLowerCase();
+  const label = getFieldLabel(field);
   
-  const combined = `${name} ${id} ${placeholder} ${label}`.toLowerCase();
+  const combined = `${name} ${id} ${placeholder} ${label} ${ariaLabel}`.toLowerCase();
   
   // Email
-  if (type === 'email' || /email|e-mail|mail/.test(combined)) {
-    return 'email';
-  }
-  
-  // Nome
-  if (/first.*name|fname|nome/.test(combined)) {
-    return 'firstName';
-  }
-  if (/last.*name|lname|surname|sobrenome|apelido/.test(combined)) {
-    return 'lastName';
-  }
-  if (/^name$|full.*name|nome.*completo/.test(combined) && !/(company|empresa)/.test(combined)) {
-    return 'fullName';
-  }
+  if (type === 'email' || /email|e-mail|mail/.test(combined)) return 'email';
   
   // Telefone
-  if (type === 'tel' || /phone|telephone|mobile|celular|telefone/.test(combined)) {
-    return 'phone';
-  }
-  
-  // Endereço
-  if (/address|street|rua|endereco|morada/.test(combined) && !/email/.test(combined)) {
-    return 'street';
-  }
-  if (/city|cidade/.test(combined)) {
-    return 'city';
-  }
-  if (/state|estado|provincia/.test(combined)) {
-    return 'state';
-  }
-  if (/zip|postal|cep|codigo.*postal/.test(combined)) {
-    return 'zip';
-  }
-  if (/country|pais/.test(combined)) {
-    return 'country';
-  }
+  if (type === 'tel' || /phone|telephone|mobile|celular|telefone|cell/.test(combined)) return 'phone';
   
   // Data
-  if (type === 'date' || /birth|nascimento|data/.test(combined)) {
-    return 'date';
-  }
+  if (type === 'date' || /birth|nascimento|data|dob|date/.test(combined)) return 'date';
+  
+  // Nome
+  if (/first.*name|fname|given.*name|nome.*proprio/.test(combined)) return 'firstName';
+  if (/last.*name|lname|surname|family.*name|sobrenome|apelido/.test(combined)) return 'lastName';
+  if (/middle.*name|initial/.test(combined)) return 'middleName';
+  if (/^name$|full.*name|nome.*completo/.test(combined) && !/(company|empresa)/.test(combined)) return 'fullName';
+  
+  // Endereço
+  if (/address.*1|street|rua|endereco|morada|address.*line/.test(combined) && !/email/.test(combined)) return 'street';
+  if (/address.*2|apt|apartment|suite|unit/.test(combined)) return 'address2';
+  if (/city|cidade/.test(combined)) return 'city';
+  if (/state|estado|provincia/.test(combined)) return 'state';
+  if (/zip|postal|cep|codigo.*postal/.test(combined)) return 'zip';
+  if (/country|pais/.test(combined)) return 'country';
   
   // Empresa
-  if (/company|empresa|organization/.test(combined)) {
-    return 'company';
-  }
+  if (/company|empresa|employer|organization/.test(combined)) return 'company';
   
   // SSN / ID
-  if (/ssn|social.*security|tax.*id|nif|contribuinte/.test(combined)) {
-    return 'ssn';
-  }
-  
-  // Número genérico
-  if (type === 'number' || /age|idade|quantity|numero/.test(combined)) {
-    return 'number';
-  }
+  if (/ssn|social.*security|tax.*id|nif|contribuinte/.test(combined)) return 'ssn';
   
   // URL
-  if (type === 'url' || /website|site|url/.test(combined)) {
-    return 'url';
-  }
+  if (type === 'url' || /website|site|url|homepage/.test(combined)) return 'url';
+  
+  // Número
+  if (type === 'number' || /age|idade|quantity|numero|amount/.test(combined)) return 'number';
   
   // Texto genérico
-  if (type === 'text' || type === '') {
-    return 'text';
-  }
-  
-  return 'unknown';
+  return 'text';
 }
 
 function getFieldLabel(field) {
-  // Procurar label associado
+  // Label com "for"
   if (field.id) {
     const label = document.querySelector(`label[for="${field.id}"]`);
     if (label) return label.textContent;
   }
   
-  // Procurar label pai
+  // Label pai
   const parentLabel = field.closest('label');
   if (parentLabel) return parentLabel.textContent;
+  
+  // Procurar label próximo
+  const prevElement = field.previousElementSibling;
+  if (prevElement && prevElement.tagName === 'LABEL') return prevElement.textContent;
   
   return '';
 }
 
-// Gerar valor baseado no tipo
-function generateValue(type, field) {
+// ==================== GERAR VALORES ====================
+function generateValue(fieldType, field) {
   const firstName = random(FICTIONAL_DATA.firstNames);
   const lastName = random(FICTIONAL_DATA.lastNames);
   
-  switch (type) {
+  switch (fieldType) {
     case 'email':
       return generateEmail(firstName, lastName);
     case 'firstName':
       return firstName;
     case 'lastName':
       return lastName;
+    case 'middleName':
+      return random(['James', 'John', 'Marie', 'Anne', 'Lee', 'Ray']);
     case 'fullName':
       return `${firstName} ${lastName}`;
     case 'phone':
       return generatePhone();
     case 'street':
       return `${randomNumber(1, 9999)} ${random(FICTIONAL_DATA.streets)}`;
+    case 'address2':
+      return randomNumber(1, 10) > 7 ? `Apt ${randomNumber(1, 500)}` : '';
     case 'city':
       return random(FICTIONAL_DATA.cities);
     case 'state':
-      return random(['NY', 'CA', 'TX', 'FL', 'IL', 'WA', 'MA']);
+      return random(FICTIONAL_DATA.states);
     case 'zip':
-      return generateZipCode();
+      return String(randomNumber(10000, 99999));
     case 'country':
-      return random(['United States', 'USA', 'US']);
+      return 'United States';
     case 'date':
-      return generateDate(field);
+      return '11/11/2000'; // Data fixa conforme solicitado
     case 'company':
       return random(FICTIONAL_DATA.companies);
     case 'ssn':
-      return generateSSN();
+      return `${randomNumber(100, 999)}-${randomNumber(10, 99)}-${randomNumber(1000, 9999)}`;
     case 'number':
       return String(randomNumber(1, 100));
     case 'url':
       return 'https://www.example.com';
     case 'text':
-      return `${firstName} ${lastName}`;
     default:
       return `${firstName} ${lastName}`;
   }
 }
 
-// Preencher campo com animação
-async function fillField(field, value) {
-  field.focus();
+// ==================== ENCONTRAR CAMPOS ====================
+function getAllFields() {
+  console.log('🔍 Procurando campos...');
   
-  // Limpar campo
-  field.value = '';
+  // Tentar de forma MUITO mais agressiva
+  const allInputs = document.querySelectorAll('input, select, textarea');
+  console.log(`📊 Total de inputs na página: ${allInputs.length}`);
   
-  // Para campos de data com date picker
-  if (field.type === 'text' && (field.placeholder || '').toLowerCase().includes('mm/dd/yyyy')) {
-    // Tentar preencher diretamente primeiro
-    field.value = value;
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-    field.dispatchEvent(new Event('change', { bubbles: true }));
+  const visibleFields = [];
+  
+  allInputs.forEach((field, index) => {
+    const type = field.type?.toLowerCase();
+    const tag = field.tagName;
     
-    // Se tem ícone de calendário, clicar nele e selecionar data
-    const calendarIcon = field.parentElement.querySelector('[class*="calendar"], [class*="icon"], button');
-    if (calendarIcon) {
-      calendarIcon.click();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Procurar e clicar no dia 11 no calendário
-      await selectDateFromPicker();
+    // Pular apenas os realmente inúteis
+    if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'image' || type === 'reset') {
+      console.log(`⏭️ Pulando campo ${index}: type=${type}`);
+      return;
     }
     
-    return;
-  }
-  
-  // Para campos autocomplete/searchable selects - SIMPLIFICADO
-  const role = field.getAttribute('role');
-  const ariaAutocomplete = field.getAttribute('aria-autocomplete');
-  const classList = field.className || '';
-  
-  if (role === 'combobox' || ariaAutocomplete === 'list' || classList.includes('autocomplete')) {
-    // Digitar no campo
-    field.value = value;
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-    field.dispatchEvent(new Event('change', { bubbles: true }));
+    // Verificar visibilidade de forma mais permissiva
+    const rect = field.getBoundingClientRect();
+    const isInViewport = rect.width > 0 && rect.height > 0;
+    const computedStyle = window.getComputedStyle(field);
+    const isDisplayed = computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
     
-    // Aguardar um pouco
+    console.log(`🔎 Campo ${index}: tag=${tag}, type=${type}, visible=${isInViewport}, displayed=${isDisplayed}, disabled=${field.disabled}`);
+    
+    if ((isInViewport || isDisplayed) && !field.disabled) {
+      visibleFields.push(field);
+      console.log(`✅ Campo ${index} ADICIONADO: ${field.name || field.id || 'sem nome'}`);
+    }
+  });
+  
+  console.log(`✨ Total de campos detectados: ${visibleFields.length}`);
+  return visibleFields;
+}
+
+// ==================== PREENCHER CAMPOS ====================
+async function fillCheckbox(field) {
+  if (!field.checked) {
+    field.checked = true;
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    field.dispatchEvent(new Event('click', { bubbles: true }));
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+async function fillRadio(field) {
+  // Marcar o primeiro radio de cada grupo
+  const name = field.name;
+  const firstRadio = document.querySelector(`input[type="radio"][name="${name}"]`);
+  
+  if (firstRadio && !document.querySelector(`input[type="radio"][name="${name}"]:checked`)) {
+    firstRadio.checked = true;
+    firstRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    firstRadio.dispatchEvent(new Event('click', { bubbles: true }));
+  }
+}
+
+async function fillSelect(field) {
+  const options = Array.from(field.options).filter((opt, idx) => idx > 0 && !opt.disabled);
+  
+  if (options.length > 0) {
+    field.value = options[0].value;
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+async function fillDatePicker(field, value) {
+  // Tentar preencher diretamente
+  field.value = value;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  field.dispatchEvent(new Event('change', { bubbles: true }));
+  
+  // Procurar ícone de calendário próximo
+  const parent = field.parentElement;
+  const calendarIcon = parent?.querySelector('button, [class*="calendar"], [class*="icon"], svg');
+  
+  if (calendarIcon) {
+    calendarIcon.click();
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Tentar clicar na primeira opção visível
-    const dropdownSelectors = [
-      '[role="listbox"] [role="option"]:first-child',
-      '[role="menu"] [role="option"]:first-child',
-      '.dropdown-menu li:first-child',
-      '.autocomplete-results li:first-child',
-      'ul[class*="option"] li:first-child',
-      'div[class*="menu"] div:first-child',
-      '[class*="dropdown"] [class*="option"]:first-child'
-    ];
+    // Procurar dia 11 no calendário
+    const dayButtons = document.querySelectorAll('button, div[role="button"], td[role="gridcell"]');
     
-    for (const selector of dropdownSelectors) {
-      const option = document.querySelector(selector);
-      if (option && option.offsetParent !== null) {
-        option.click();
+    for (const btn of dayButtons) {
+      if (btn.textContent.trim() === '11' && !btn.disabled && btn.offsetParent !== null) {
+        btn.click();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        break;
+      }
+    }
+  }
+}
+
+async function fillAutocomplete(field, value) {
+  field.focus();
+  field.value = '';
+  
+  // Digitar valor
+  field.value = value;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  field.dispatchEvent(new Event('change', { bubbles: true }));
+  field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: value[0] }));
+  field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: value[0] }));
+  
+  // Aguardar dropdown
+  await new Promise(resolve => setTimeout(resolve, 600));
+  
+  // Procurar primeira opção em dropdowns
+  const dropdownSelectors = [
+    '[role="listbox"] [role="option"]',
+    '[role="menu"] [role="menuitem"]',
+    'ul[class*="option"] li',
+    'ul[class*="menu"] li',
+    'div[class*="option"]',
+    '.dropdown-menu li',
+    '.autocomplete-results li'
+  ];
+  
+  for (const selector of dropdownSelectors) {
+    const options = document.querySelectorAll(selector);
+    
+    if (options.length > 0) {
+      const firstOption = Array.from(options).find(opt => opt.offsetParent !== null);
+      
+      if (firstOption) {
+        firstOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        firstOption.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        firstOption.click();
         await new Promise(resolve => setTimeout(resolve, 200));
         return;
       }
     }
+  }
+  
+  // Tentar Arrow Down + Enter
+  field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown', keyCode: 40 }));
+  await new Promise(resolve => setTimeout(resolve, 150));
+  field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', keyCode: 13 }));
+}
+
+async function fillNormalInput(field, value) {
+  console.log(`📝 Tentando preencher campo normal com: "${value}"`);
+  
+  field.focus();
+  console.log('  → Focus aplicado');
+  
+  // Tentar múltiplas formas de setar o valor
+  try {
+    // Método 1: Setter nativo
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    )?.set;
     
-    // Se não encontrou, tentar pressionar seta para baixo e Enter
-    field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown', keyCode: 40 }));
-    await new Promise(resolve => setTimeout(resolve, 100));
-    field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', keyCode: 13 }));
-    
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(field, value);
+      console.log('  → Setter nativo aplicado');
+    }
+  } catch (e) {
+    console.log('  ⚠️ Setter nativo falhou:', e);
+  }
+  
+  // Método 2: Direto
+  field.value = value;
+  console.log('  → Valor direto aplicado');
+  
+  // Disparar TODOS os eventos possíveis
+  const events = ['input', 'change', 'blur', 'keyup', 'keydown'];
+  events.forEach(eventType => {
+    field.dispatchEvent(new Event(eventType, { bubbles: true }));
+  });
+  console.log('  → Eventos disparados');
+  
+  // Verificar se o valor ficou
+  setTimeout(() => {
+    console.log(`  ✓ Valor final do campo: "${field.value}"`);
+  }, 100);
+}
+
+async function fillField(field, value) {
+  const fieldType = field.type?.toLowerCase();
+  const role = field.getAttribute('role');
+  const ariaAutocomplete = field.getAttribute('aria-autocomplete');
+  
+  console.log(`🎯 Preenchendo campo: type=${fieldType}, role=${role}, autocomplete=${ariaAutocomplete}`);
+  
+  // Checkbox
+  if (fieldType === 'checkbox') {
+    console.log('☑️ Detectado CHECKBOX');
+    await fillCheckbox(field);
     return;
   }
   
-  // Campos normais
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
-    'value'
-  ).set;
-  nativeInputValueSetter.call(field, value);
+  // Radio
+  if (fieldType === 'radio') {
+    console.log('🔘 Detectado RADIO');
+    await fillRadio(field);
+    return;
+  }
   
-  field.value = value;
+  // Select
+  if (field.tagName === 'SELECT') {
+    console.log('📋 Detectado SELECT');
+    await fillSelect(field);
+    return;
+  }
   
-  // Disparar eventos
-  field.dispatchEvent(new Event('input', { bubbles: true }));
-  field.dispatchEvent(new Event('change', { bubbles: true }));
-  field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-  field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-  field.blur();
+  // Date picker
+  const detectedType = detectFieldType(field);
+  if (detectedType === 'date' && fieldType !== 'date') {
+    console.log('📅 Detectado DATE PICKER');
+    await fillDatePicker(field, value);
+    return;
+  }
+  
+  // Autocomplete
+  if (role === 'combobox' || ariaAutocomplete === 'list' || ariaAutocomplete === 'both') {
+    console.log('🔽 Detectado AUTOCOMPLETE');
+    await fillAutocomplete(field, value);
+    return;
+  }
+  
+  // Input normal
+  console.log('📝 Preenchendo como INPUT NORMAL');
+  await fillNormalInput(field, value);
 }
 
-// Selecionar data do calendário popup
-async function selectDateFromPicker() {
-  // Aguardar calendário abrir
-  await new Promise(resolve => setTimeout(resolve, 300));
+// ==================== NAVEGAÇÃO ====================
+function clickNextButton() {
+  console.log('🔍 Procurando botão "Continuar"...');
   
-  // Procurar botões/células com o número 11
-  const daySelectors = [
-    'button:not([disabled])',
-    'div[role="button"]',
-    'td[role="button"]',
-    '[class*="day"]',
-    '[class*="cell"]'
-  ];
+  const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a[role="button"], a'));
+  console.log(`📊 Total de botões encontrados: ${buttons.length}`);
   
-  for (const selector of daySelectors) {
-    const days = document.querySelectorAll(selector);
+  for (const btn of buttons) {
+    const text = (btn.textContent || btn.value || btn.getAttribute('aria-label') || '').toLowerCase();
+    const rect = btn.getBoundingClientRect();
+    const isVisible = rect.width > 0 && rect.height > 0;
+    const isEnabled = !btn.disabled;
     
-    for (const day of days) {
-      const text = day.textContent.trim();
-      // Procurar exatamente o número 11
-      if (text === '11' && day.offsetParent !== null && !day.disabled) {
-        console.log('Clicando no dia 11 do calendário');
-        day.click();
-        await new Promise(resolve => setTimeout(resolve, 200));
-        return true;
-      }
+    console.log(`🔘 Botão: "${text.substring(0, 30)}", visível=${isVisible}, habilitado=${isEnabled}`);
+    
+    if (isVisible && isEnabled && /next|continue|submit|próximo|continuar|enviar|seguinte|avançar|prosseguir|save/.test(text)) {
+      console.log(`✅ ENCONTRADO botão para clicar: "${text}"`);
+      btn.click();
+      console.log('🔘 Clique executado!');
+      return true;
     }
   }
   
+  console.log('❌ Nenhum botão "Continuar" encontrado');
   return false;
 }
 
-// Simular digitação caractere por caractere - REMOVIDO (não usado mais)
-
-// Selecionar do autocomplete dropdown - REMOVIDO (simplificado acima)
-
-// Encontrar todos os campos preenchíveis
-function getFormFields() {
-  const fields = document.querySelectorAll(
-    'input[type="text"], input[type="email"], input[type="tel"], ' +
-    'input[type="number"], input[type="date"], input[type="url"], ' +
-    'input:not([type]), select, textarea, ' +
-    'input[role="combobox"], input[type="checkbox"]'
-  );
-  
-  return Array.from(fields).filter(field => {
-    return field.offsetParent !== null && // Visível
-           !field.disabled && 
-           !field.readOnly &&
-           field.type !== 'hidden' &&
-           field.type !== 'submit' &&
-           field.type !== 'button';
-  });
-}
-
-// Verificar se todos os campos obrigatórios estão preenchidos
 function areAllRequiredFieldsFilled() {
   const requiredFields = document.querySelectorAll('input[required], select[required], textarea[required]');
   
   for (const field of requiredFields) {
-    if (!field.value || field.value.trim() === '') {
-      return false;
+    if (field.type === 'checkbox' && !field.checked) return false;
+    if (field.type === 'radio') {
+      const name = field.name;
+      const isChecked = document.querySelector(`input[type="radio"][name="${name}"]:checked`);
+      if (!isChecked) return false;
     }
+    if (!field.value || field.value.trim() === '') return false;
   }
   
   return requiredFields.length > 0;
 }
 
-// Procurar e clicar no botão de próxima página
-function clickNextButton() {
-  const buttons = document.querySelectorAll('button, input[type="submit"], a');
-  
-  for (const btn of buttons) {
-    const text = (btn.textContent || btn.value || '').toLowerCase();
-    if (/next|continue|submit|próximo|continuar|enviar|seguinte/.test(text)) {
-      console.log('Clicando no botão:', btn.textContent || btn.value);
-      btn.click();
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-// Processo principal de preenchimento
+// ==================== PROCESSO PRINCIPAL ====================
 async function fillForm() {
   if (!isRunning) return;
   
-  const fields = getFormFields();
+  console.log('🚀 Iniciando preenchimento...');
+  const fields = getAllFields();
   
   if (fields.length === 0) {
-    console.log('Nenhum campo encontrado');
+    console.log('⚠️ Nenhum campo encontrado');
     return;
   }
   
-  console.log(`Encontrados ${fields.length} campos para preencher`);
+  console.log(`📝 Encontrados ${fields.length} campos`);
   
   for (let i = 0; i < fields.length; i++) {
     if (!isRunning) break;
     
     const field = fields[i];
     
-    // Checkboxes - SEMPRE marcar
-    if (field.type === 'checkbox') {
-      if (!field.checked) {
-        field.checked = true;
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-        field.dispatchEvent(new Event('click', { bubbles: true }));
+    // Pular campos já preenchidos (exceto checkbox/radio)
+    if (field.type !== 'checkbox' && field.type !== 'radio') {
+      if (field.value && field.value.trim() !== '') {
+        console.log(`⏭️ Pulando campo já preenchido:`, field.name || field.id);
+        continue;
       }
-      continue;
     }
     
-    // Pular campos já preenchidos
-    if (field.value && field.value.trim() !== '') {
-      continue;
-    }
-    
-    // Detectar tipo e preencher
-    if (field.tagName === 'SELECT') {
-      // Para selects normais - escolher PRIMEIRA opção válida
-      const options = Array.from(field.options).filter((opt, idx) => idx > 0 && !opt.disabled);
-      if (options.length > 0) {
-        field.value = options[0].value;
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    } else {
+    try {
       const fieldType = detectFieldType(field);
       const value = generateValue(fieldType, field);
       
-      console.log(`Preenchendo ${fieldType}:`, value);
+      console.log(`✏️ Preenchendo ${fieldType}:`, value);
       await fillField(field, value);
+      
+      // Aguardar entre campos
+      await new Promise(resolve => {
+        currentTimeout = setTimeout(resolve, fillSpeed);
+      });
+    } catch (error) {
+      console.error('❌ Erro ao preencher campo:', error);
     }
-    
-    // Aguardar antes do próximo campo
-    await new Promise(resolve => {
-      currentTimeout = setTimeout(resolve, fillSpeed);
-    });
   }
   
-  // Verificar se todos os campos obrigatórios estão preenchidos
+  console.log('✅ Preenchimento concluído');
+  
+  // Verificar se pode avançar
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
   if (areAllRequiredFieldsFilled()) {
-    console.log('Todos os campos obrigatórios preenchidos. Procurando botão de próxima página...');
+    console.log('✔️ Todos os campos obrigatórios preenchidos');
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    const clicked = clickNextButton();
-    
-    if (clicked) {
-      // Aguardar nova página carregar e tentar preencher novamente
+    if (clickNextButton()) {
+      console.log('➡️ Avançando para próxima página...');
+      
+      // Aguardar nova página e continuar
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
       if (isRunning) {
         fillForm();
       }
+    } else {
+      console.log('⚠️ Botão "Continuar" não encontrado');
     }
+  } else {
+    console.log('ℹ️ Ainda há campos obrigatórios vazios ou não há campos obrigatórios');
   }
 }
 
-// Listener para mensagens do popup
+// ==================== LISTENERS ====================
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'start') {
     isRunning = true;
     fillSpeed = request.speed || 500;
     chrome.storage.local.set({ isRunning: true });
+    console.log('▶️ Iniciando extensão...');
     fillForm();
   } else if (request.action === 'stop') {
     isRunning = false;
     chrome.storage.local.set({ isRunning: false });
+    console.log('⏸️ Extensão pausada');
     if (currentTimeout) {
       clearTimeout(currentTimeout);
     }
