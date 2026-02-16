@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .control-panel {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    
+    .speed-control {
+      margin-bottom: 16px;
+    }
+    
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    
+    .speed-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.3);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    
+    .speed-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .speed-value {
+      text-align: center;
+      font-size: 12px;
+      margin-top: 6px;
+      opacity: 0.9;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 8px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    #startBtn {
+      background: #10b981;
+      color: white;
+    }
+    
+    #startBtn:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+    
+    #stopBtn {
+      background: #ef4444;
+      color: white;
+    }
+    
+    #stopBtn:hover {
+      background: #dc2626;
+      transform: translateY(-1px);
+    }
+    
+    #stopBtn:disabled,
+    #startBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .status {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      font-size: 13px;
+    }
+    
+    .status.active {
+      background: rgba(16, 185, 129, 0.3);
+    }
+    
+    .status.stopped {
+      background: rgba(239, 68, 68, 0.3);
+    }
+    
+    .info {
+      margin-top: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎯 Smart Form Filler</h1>
+    <div class="subtitle">Preenchimento automático inteligente</div>
+  </div>
+  
+  <div class="control-panel">
+    <div class="speed-control">
+      <label for="speed">Velocidade de Preenchimento</label>
+      <input type="range" id="speed" class="speed-slider" min="100" max="2000" value="500" step="100">
+      <div class="speed-value" id="speedValue">500ms por campo</div>
+    </div>
+    
+    <div class="button-group">
+      <button id="startBtn">▶ Iniciar</button>
+      <button id="stopBtn" disabled>⏸ Parar</button>
+    </div>
+  </div>
+  
+  <div class="status" id="status">
+    Pronto para preencher formulários
+  </div>
+  
+  <div class="info">
+    ℹ️ Usa personagens fictícios e emails @swordhealth.com. Avança automaticamente quando todos os campos estiverem preenchidos.
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
