@@ -44,28 +44,20 @@ function generateZipCode() {
 }
 
 function generateDate(field) {
-  const year = randomNumber(1970, 2005);
-  const month = String(randomNumber(1, 12)).padStart(2, '0');
-  const day = String(randomNumber(1, 28)).padStart(2, '0');
-  
-  // Verificar formato esperado pelo campo
+  // SEMPRE usar 11/11/2000 para todos os campos de data
   const placeholder = (field.placeholder || '').toLowerCase();
   
-  if (placeholder.includes('mm/dd/yyyy') || placeholder.includes('month/day/year')) {
-    return `${month}/${day}/${year}`;
-  } else if (placeholder.includes('dd/mm/yyyy') || placeholder.includes('day/month/year')) {
-    return `${day}/${month}/${year}`;
-  } else if (placeholder.includes('yyyy-mm-dd')) {
-    return `${year}-${month}-${day}`;
+  if (placeholder.includes('dd/mm/yyyy') || placeholder.includes('day/month/year')) {
+    return '11/11/2000';
   }
   
   // Formato padrão ISO para inputs type="date"
   if (field.type === 'date') {
-    return `${year}-${month}-${day}`;
+    return '2000-11-11';
   }
   
-  // Formato americano por padrão
-  return `${month}/${day}/${year}`;
+  // Formato americano por padrão (MM/DD/YYYY)
+  return '11/11/2000';
 }
 
 function generateSSN() {
@@ -217,24 +209,49 @@ async function fillField(field, value) {
   // Limpar campo
   field.value = '';
   
-  // Para campos autocomplete/searchable selects
+  // Para campos autocomplete/searchable selects - SIMPLIFICADO
   const role = field.getAttribute('role');
   const ariaAutocomplete = field.getAttribute('aria-autocomplete');
+  const classList = field.className || '';
   
-  if (role === 'combobox' || ariaAutocomplete === 'list') {
-    // Simular digitação para ativar autocomplete
-    await typeIntoField(field, value);
+  if (role === 'combobox' || ariaAutocomplete === 'list' || classList.includes('autocomplete')) {
+    // Digitar no campo
+    field.value = value;
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
     
-    // Aguardar dropdown aparecer
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Aguardar um pouco
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Procurar e clicar na primeira opção do dropdown
-    await selectFromAutocomplete(field, value);
+    // Tentar clicar na primeira opção visível
+    const dropdownSelectors = [
+      '[role="listbox"] [role="option"]:first-child',
+      '[role="menu"] [role="option"]:first-child',
+      '.dropdown-menu li:first-child',
+      '.autocomplete-results li:first-child',
+      'ul[class*="option"] li:first-child',
+      'div[class*="menu"] div:first-child',
+      '[class*="dropdown"] [class*="option"]:first-child'
+    ];
+    
+    for (const selector of dropdownSelectors) {
+      const option = document.querySelector(selector);
+      if (option && option.offsetParent !== null) {
+        option.click();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        return;
+      }
+    }
+    
+    // Se não encontrou, tentar pressionar seta para baixo e Enter
+    field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown', keyCode: 40 }));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', keyCode: 13 }));
     
     return;
   }
   
-  // Disparar eventos para frameworks como React
+  // Campos normais
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
     window.HTMLInputElement.prototype,
     'value'
@@ -251,70 +268,9 @@ async function fillField(field, value) {
   field.blur();
 }
 
-// Simular digitação caractere por caractere
-async function typeIntoField(field, text) {
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    field.value += char;
-    
-    // Disparar eventos de teclado
-    field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: char }));
-    field.dispatchEvent(new KeyboardEvent('keypress', { bubbles: true, key: char }));
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-    field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: char }));
-    
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-}
+// Simular digitação caractere por caractere - REMOVIDO (não usado mais)
 
-// Selecionar do autocomplete dropdown
-async function selectFromAutocomplete(field, searchText) {
-  // Procurar por listas de opções que apareceram
-  const selectors = [
-    '[role="listbox"]',
-    '[role="menu"]',
-    '.dropdown-menu',
-    '.autocomplete-results',
-    'ul[class*="option"]',
-    'div[class*="menu"]',
-    '[class*="dropdown"]'
-  ];
-  
-  for (const selector of selectors) {
-    const dropdown = document.querySelector(selector);
-    if (!dropdown) continue;
-    
-    // Procurar opções dentro do dropdown
-    const options = dropdown.querySelectorAll(
-      '[role="option"], li, div[class*="option"], div[tabindex]'
-    );
-    
-    if (options.length > 0) {
-      // Procurar opção que corresponda ao texto ou pegar a primeira
-      let targetOption = options[0];
-      
-      for (const option of options) {
-        const text = option.textContent.toLowerCase();
-        if (text.includes(searchText.toLowerCase())) {
-          targetOption = option;
-          break;
-        }
-      }
-      
-      // Simular clique na opção
-      targetOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-      targetOption.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-      targetOption.click();
-      
-      return true;
-    }
-  }
-  
-  // Se não encontrou dropdown, tentar pressionar Enter
-  field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', keyCode: 13 }));
-  
-  return false;
-}
+// Selecionar do autocomplete dropdown - REMOVIDO (simplificado acima)
 
 // Encontrar todos os campos preenchíveis
 function getFormFields() {
@@ -322,7 +278,7 @@ function getFormFields() {
     'input[type="text"], input[type="email"], input[type="tel"], ' +
     'input[type="number"], input[type="date"], input[type="url"], ' +
     'input:not([type]), select, textarea, ' +
-    'input[role="combobox"], div[role="combobox"] input'
+    'input[role="combobox"], input[type="checkbox"]'
   );
   
   return Array.from(fields).filter(field => {
@@ -382,6 +338,16 @@ async function fillForm() {
     
     const field = fields[i];
     
+    // Checkboxes - SEMPRE marcar
+    if (field.type === 'checkbox') {
+      if (!field.checked) {
+        field.checked = true;
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        field.dispatchEvent(new Event('click', { bubbles: true }));
+      }
+      continue;
+    }
+    
     // Pular campos já preenchidos
     if (field.value && field.value.trim() !== '') {
       continue;
@@ -389,11 +355,10 @@ async function fillForm() {
     
     // Detectar tipo e preencher
     if (field.tagName === 'SELECT') {
-      // Para selects, escolher opção aleatória (exceto a primeira que geralmente é placeholder)
+      // Para selects normais - escolher PRIMEIRA opção válida
       const options = Array.from(field.options).filter((opt, idx) => idx > 0 && !opt.disabled);
       if (options.length > 0) {
-        const randomOption = random(options);
-        field.value = randomOption.value;
+        field.value = options[0].value;
         field.dispatchEvent(new Event('change', { bubbles: true }));
       }
     } else {
