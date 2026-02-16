@@ -43,11 +43,29 @@ function generateZipCode() {
   return `${randomNumber(10000, 99999)}`;
 }
 
-function generateDate() {
+function generateDate(field) {
   const year = randomNumber(1970, 2005);
   const month = String(randomNumber(1, 12)).padStart(2, '0');
   const day = String(randomNumber(1, 28)).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  
+  // Verificar formato esperado pelo campo
+  const placeholder = (field.placeholder || '').toLowerCase();
+  
+  if (placeholder.includes('mm/dd/yyyy') || placeholder.includes('month/day/year')) {
+    return `${month}/${day}/${year}`;
+  } else if (placeholder.includes('dd/mm/yyyy') || placeholder.includes('day/month/year')) {
+    return `${day}/${month}/${year}`;
+  } else if (placeholder.includes('yyyy-mm-dd')) {
+    return `${year}-${month}-${day}`;
+  }
+  
+  // Formato padrão ISO para inputs type="date"
+  if (field.type === 'date') {
+    return `${year}-${month}-${day}`;
+  }
+  
+  // Formato americano por padrão
+  return `${month}/${day}/${year}`;
 }
 
 function generateSSN() {
@@ -176,7 +194,7 @@ function generateValue(type, field) {
     case 'country':
       return random(['United States', 'USA', 'US']);
     case 'date':
-      return generateDate();
+      return generateDate(field);
     case 'company':
       return random(FICTIONAL_DATA.companies);
     case 'ssn':
@@ -193,11 +211,28 @@ function generateValue(type, field) {
 }
 
 // Preencher campo com animação
-function fillField(field, value) {
+async function fillField(field, value) {
   field.focus();
   
   // Limpar campo
   field.value = '';
+  
+  // Para campos autocomplete/searchable selects
+  const role = field.getAttribute('role');
+  const ariaAutocomplete = field.getAttribute('aria-autocomplete');
+  
+  if (role === 'combobox' || ariaAutocomplete === 'list') {
+    // Simular digitação para ativar autocomplete
+    await typeIntoField(field, value);
+    
+    // Aguardar dropdown aparecer
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Procurar e clicar na primeira opção do dropdown
+    await selectFromAutocomplete(field, value);
+    
+    return;
+  }
   
   // Disparar eventos para frameworks como React
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
@@ -211,7 +246,74 @@ function fillField(field, value) {
   // Disparar eventos
   field.dispatchEvent(new Event('input', { bubbles: true }));
   field.dispatchEvent(new Event('change', { bubbles: true }));
+  field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+  field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
   field.blur();
+}
+
+// Simular digitação caractere por caractere
+async function typeIntoField(field, text) {
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    field.value += char;
+    
+    // Disparar eventos de teclado
+    field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: char }));
+    field.dispatchEvent(new KeyboardEvent('keypress', { bubbles: true, key: char }));
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: char }));
+    
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+}
+
+// Selecionar do autocomplete dropdown
+async function selectFromAutocomplete(field, searchText) {
+  // Procurar por listas de opções que apareceram
+  const selectors = [
+    '[role="listbox"]',
+    '[role="menu"]',
+    '.dropdown-menu',
+    '.autocomplete-results',
+    'ul[class*="option"]',
+    'div[class*="menu"]',
+    '[class*="dropdown"]'
+  ];
+  
+  for (const selector of selectors) {
+    const dropdown = document.querySelector(selector);
+    if (!dropdown) continue;
+    
+    // Procurar opções dentro do dropdown
+    const options = dropdown.querySelectorAll(
+      '[role="option"], li, div[class*="option"], div[tabindex]'
+    );
+    
+    if (options.length > 0) {
+      // Procurar opção que corresponda ao texto ou pegar a primeira
+      let targetOption = options[0];
+      
+      for (const option of options) {
+        const text = option.textContent.toLowerCase();
+        if (text.includes(searchText.toLowerCase())) {
+          targetOption = option;
+          break;
+        }
+      }
+      
+      // Simular clique na opção
+      targetOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      targetOption.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      targetOption.click();
+      
+      return true;
+    }
+  }
+  
+  // Se não encontrou dropdown, tentar pressionar Enter
+  field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', keyCode: 13 }));
+  
+  return false;
 }
 
 // Encontrar todos os campos preenchíveis
@@ -219,7 +321,8 @@ function getFormFields() {
   const fields = document.querySelectorAll(
     'input[type="text"], input[type="email"], input[type="tel"], ' +
     'input[type="number"], input[type="date"], input[type="url"], ' +
-    'input:not([type]), select, textarea'
+    'input:not([type]), select, textarea, ' +
+    'input[role="combobox"], div[role="combobox"] input'
   );
   
   return Array.from(fields).filter(field => {
@@ -298,7 +401,7 @@ async function fillForm() {
       const value = generateValue(fieldType, field);
       
       console.log(`Preenchendo ${fieldType}:`, value);
-      fillField(field, value);
+      await fillField(field, value);
     }
     
     // Aguardar antes do próximo campo
