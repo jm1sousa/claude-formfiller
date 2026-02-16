@@ -1,5 +1,4 @@
-// ==================== AUTOMATION FRAMEWORK STYLE ====================
-// Simula Selenium/Playwright/Cypress
+// ==================== PLAYWRIGHT/SELENIUM REPLICA ====================
 let isRunning = false;
 let fillSpeed = 500;
 let floatingUI = null;
@@ -12,149 +11,200 @@ const FICTIONAL_DATA = {
   companies: ['Stark Industries', 'Wayne Enterprises', 'Umbrella Corp', 'Cyberdyne Systems', 'Oscorp']
 };
 
-function random(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+function random(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randomNum(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+// ==================== PLAYWRIGHT CORE METHODS ====================
+
+// Scroll to element (Playwright sempre faz isso antes de interagir)
+async function scrollToElement(element) {
+  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await new Promise(r => setTimeout(r, 100));
 }
 
-function randomNum(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+// Wait for element to be ready (Playwright espera elemento estar pronto)
+async function waitForElement(element) {
+  await scrollToElement(element);
+  
+  // Esperar estar visível
+  let attempts = 0;
+  while (attempts < 10) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) break;
+    await new Promise(r => setTimeout(r, 50));
+    attempts++;
+  }
 }
 
-// ==================== AUTOMATION HELPERS ====================
-// Simula interação humana real como Selenium faz
-
-function humanTypeCharacter(element, char) {
-  // Simula pressionar uma tecla como humano
-  const keydownEvent = new KeyboardEvent('keydown', {
-    key: char,
-    code: `Key${char.toUpperCase()}`,
-    charCode: char.charCodeAt(0),
-    keyCode: char.charCodeAt(0),
-    which: char.charCodeAt(0),
-    bubbles: true,
-    cancelable: true
-  });
+// Fill input (método fill() do Playwright)
+async function playwrightFill(element, value) {
+  console.log(`🎯 Playwright.fill("${value}")`);
   
-  const keypressEvent = new KeyboardEvent('keypress', {
-    key: char,
-    code: `Key${char.toUpperCase()}`,
-    charCode: char.charCodeAt(0),
-    keyCode: char.charCodeAt(0),
-    which: char.charCodeAt(0),
-    bubbles: true,
-    cancelable: true
-  });
+  await waitForElement(element);
   
-  const inputEvent = new InputEvent('input', {
-    data: char,
-    inputType: 'insertText',
-    bubbles: true,
-    cancelable: true
-  });
-  
-  const keyupEvent = new KeyboardEvent('keyup', {
-    key: char,
-    code: `Key${char.toUpperCase()}`,
-    charCode: char.charCodeAt(0),
-    keyCode: char.charCodeAt(0),
-    which: char.charCodeAt(0),
-    bubbles: true,
-    cancelable: true
-  });
-  
-  element.dispatchEvent(keydownEvent);
-  element.dispatchEvent(keypressEvent);
-  element.dispatchEvent(inputEvent);
-  element.dispatchEvent(keyupEvent);
-}
-
-async function humanType(element, text, delayBetweenChars = 50) {
-  // Simula digitação humana caractere por caractere
+  // 1. Focus (Playwright sempre foca primeiro)
   element.focus();
+  await new Promise(r => setTimeout(r, 50));
   
-  // Limpar campo primeiro
-  element.value = '';
+  // 2. Select all (Playwright seleciona tudo antes de preencher)
+  element.select?.();
+  await new Promise(r => setTimeout(r, 50));
   
-  // Disparar evento de focus
-  element.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
-  
-  // Digitar cada caractere
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    
-    // Atualizar valor
-    element.value += char;
-    
-    // Disparar eventos de tecla
-    humanTypeCharacter(element, char);
-    
-    // Aguardar um pouco (simula velocidade de digitação humana)
-    await new Promise(r => setTimeout(r, delayBetweenChars));
+  // 3. Clear com backspace (Playwright limpa assim)
+  const currentValue = element.value;
+  for (let i = 0; i < currentValue.length; i++) {
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', keyCode: 8, bubbles: true }));
+    element.value = element.value.slice(0, -1);
+    element.dispatchEvent(new InputEvent('input', { inputType: 'deleteContentBackward', bubbles: true }));
   }
   
-  // Disparar eventos finais
+  // 4. Type caractere por caractere (Playwright digita assim)
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    
+    // KeyDown
+    element.dispatchEvent(new KeyboardEvent('keydown', {
+      key: char,
+      code: `Key${char.toUpperCase()}`,
+      keyCode: char.charCodeAt(0),
+      which: char.charCodeAt(0),
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    }));
+    
+    // KeyPress
+    element.dispatchEvent(new KeyboardEvent('keypress', {
+      key: char,
+      code: `Key${char.toUpperCase()}`,
+      keyCode: char.charCodeAt(0),
+      which: char.charCodeAt(0),
+      charCode: char.charCodeAt(0),
+      bubbles: true,
+      cancelable: true
+    }));
+    
+    // Atualizar valor (técnica para React/Vue)
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set ||
+                         Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+    if (nativeSetter) {
+      nativeSetter.call(element, element.value + char);
+    } else {
+      element.value += char;
+    }
+    
+    // Input event
+    element.dispatchEvent(new InputEvent('input', {
+      inputType: 'insertText',
+      data: char,
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    }));
+    
+    // KeyUp
+    element.dispatchEvent(new KeyboardEvent('keyup', {
+      key: char,
+      code: `Key${char.toUpperCase()}`,
+      keyCode: char.charCodeAt(0),
+      which: char.charCodeAt(0),
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    }));
+    
+    // Delay entre teclas (Playwright faz isso)
+    await new Promise(r => setTimeout(r, 30));
+  }
+  
+  // 5. Eventos finais
   element.dispatchEvent(new Event('change', { bubbles: true }));
   element.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  
+  console.log(`  ✓ Preenchido: "${element.value}"`);
 }
 
-function humanClick(element) {
-  // Simula clique humano completo
+// Click (método click() do Playwright)
+async function playwrightClick(element) {
+  console.log(`🖱️ Playwright.click()`);
+  
+  await waitForElement(element);
+  
   const rect = element.getBoundingClientRect();
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
   
-  const mousedownEvent = new MouseEvent('mousedown', {
-    bubbles: true,
-    cancelable: true,
-    view: window,
-    clientX: x,
-    clientY: y
-  });
+  // MouseOver
+  element.dispatchEvent(new MouseEvent('mouseover', {
+    bubbles: true, cancelable: true, view: window,
+    clientX: x, clientY: y
+  }));
   
-  const mouseupEvent = new MouseEvent('mouseup', {
-    bubbles: true,
-    cancelable: true,
-    view: window,
-    clientX: x,
-    clientY: y
-  });
+  await new Promise(r => setTimeout(r, 10));
   
-  const clickEvent = new MouseEvent('click', {
-    bubbles: true,
-    cancelable: true,
-    view: window,
-    clientX: x,
-    clientY: y
-  });
+  // MouseMove
+  element.dispatchEvent(new MouseEvent('mousemove', {
+    bubbles: true, cancelable: true, view: window,
+    clientX: x, clientY: y
+  }));
   
-  element.dispatchEvent(mousedownEvent);
-  element.dispatchEvent(mouseupEvent);
-  element.dispatchEvent(clickEvent);
+  await new Promise(r => setTimeout(r, 10));
+  
+  // MouseDown
+  element.dispatchEvent(new MouseEvent('mousedown', {
+    bubbles: true, cancelable: true, view: window,
+    clientX: x, clientY: y, button: 0
+  }));
+  
+  // Focus
+  element.focus();
+  
+  await new Promise(r => setTimeout(r, 10));
+  
+  // MouseUp
+  element.dispatchEvent(new MouseEvent('mouseup', {
+    bubbles: true, cancelable: true, view: window,
+    clientX: x, clientY: y, button: 0
+  }));
+  
+  // Click
+  element.dispatchEvent(new MouseEvent('click', {
+    bubbles: true, cancelable: true, view: window,
+    clientX: x, clientY: y, button: 0, detail: 1
+  }));
+  
+  console.log(`  ✓ Clicado`);
 }
 
-function setReactValue(element, value) {
-  // Técnica específica para React (usado por Selenium/Playwright)
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
-    'value'
-  )?.set;
+// Select option (método selectOption() do Playwright)
+async function playwrightSelectOption(element, index) {
+  console.log(`📋 Playwright.selectOption(index: ${index})`);
   
-  const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLTextAreaElement.prototype,
-    'value'
-  )?.set;
+  await waitForElement(element);
   
-  if (element.tagName === 'TEXTAREA' && nativeTextAreaValueSetter) {
-    nativeTextAreaValueSetter.call(element, value);
-  } else if (nativeInputValueSetter) {
-    nativeInputValueSetter.call(element, value);
+  element.focus();
+  element.selectedIndex = index;
+  
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+  element.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  
+  console.log(`  ✓ Selecionado: ${element.options[index]?.text}`);
+}
+
+// Check (método check() do Playwright)
+async function playwrightCheck(element) {
+  console.log(`☑️ Playwright.check()`);
+  
+  if (element.checked) {
+    console.log(`  ⏭️ Já marcado`);
+    return;
   }
   
-  // Disparar evento de input (React precisa disso)
-  element.dispatchEvent(new Event('input', { bubbles: true }));
+  await playwrightClick(element);
 }
 
-// ==================== UI FLUTUANTE ====================
+// ==================== UI FLUTUANTE (MANTIDO) ====================
 function createFloatingUI() {
   if (floatingUI) return;
   
@@ -163,17 +213,17 @@ function createFloatingUI() {
   floatingUI.innerHTML = `
     <style>
       #smart-form-filler-ui {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        width: 320px;
+        position: fixed !important;
+        top: 20px !important;
+        right: 20px !important;
+        width: 340px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.4);
         padding: 20px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         color: white;
-        z-index: 999999;
+        z-index: 2147483647 !important;
         user-select: none;
       }
       
@@ -336,7 +386,7 @@ function createFloatingUI() {
     <div class="sff-drag-handle">⋮⋮⋮</div>
     
     <div class="sff-header">
-      <div class="sff-title">🎯 Smart Form Filler</div>
+      <div class="sff-title">🎯 Playwright Automation</div>
       <button class="sff-close" id="sff-close-btn">×</button>
     </div>
     
@@ -353,16 +403,17 @@ function createFloatingUI() {
       </div>
     </div>
     
-    <div class="sff-status" id="sff-status">Pronto para preencher</div>
+    <div class="sff-status" id="sff-status">Pronto para automação</div>
     
     <div class="sff-info">
-      ℹ️ Simula automação tipo Selenium/Playwright
+      🤖 Usando técnicas Playwright/Selenium<br>
+      📧 Emails: @swordhealth.com<br>
+      📅 Data fixa: 11/11/2000
     </div>
   `;
   
   document.body.appendChild(floatingUI);
   
-  // Event listeners
   const speedSlider = floatingUI.querySelector('#sff-speed');
   const speedValue = floatingUI.querySelector('#sff-speed-value');
   const startBtn = floatingUI.querySelector('#sff-start-btn');
@@ -380,8 +431,8 @@ function createFloatingUI() {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     status.className = 'sff-status active';
-    status.textContent = '✅ Preenchimento ativo';
-    automateForm();
+    status.textContent = '✅ Automação ativa';
+    runPlaywrightAutomation();
   });
   
   stopBtn.addEventListener('click', () => {
@@ -389,7 +440,7 @@ function createFloatingUI() {
     startBtn.disabled = false;
     stopBtn.disabled = true;
     status.className = 'sff-status stopped';
-    status.textContent = '⏸ Preenchimento pausado';
+    status.textContent = '⏸ Automação pausada';
   });
   
   closeBtn.addEventListener('click', () => {
@@ -405,40 +456,32 @@ function makeDraggable(element) {
   let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
   const dragHandle = element.querySelector('.sff-drag-handle');
   
-  dragHandle.onmousedown = dragMouseDown;
-  
-  function dragMouseDown(e) {
+  dragHandle.onmousedown = (e) => {
     e.preventDefault();
     pos3 = e.clientX;
     pos4 = e.clientY;
-    document.onmouseup = closeDragElement;
-    document.onmousemove = elementDrag;
-  }
-  
-  function elementDrag(e) {
-    e.preventDefault();
-    pos1 = pos3 - e.clientX;
-    pos2 = pos4 - e.clientY;
-    pos3 = e.clientX;
-    pos4 = e.clientY;
-    element.style.top = (element.offsetTop - pos2) + 'px';
-    element.style.right = '';
-    element.style.left = (element.offsetLeft - pos1) + 'px';
-  }
-  
-  function closeDragElement() {
-    document.onmouseup = null;
-    document.onmousemove = null;
-  }
+    document.onmouseup = () => { document.onmouseup = null; document.onmousemove = null; };
+    document.onmousemove = (e) => {
+      e.preventDefault();
+      pos1 = pos3 - e.clientX;
+      pos2 = pos4 - e.clientY;
+      pos3 = e.clientX;
+      pos4 = e.clientY;
+      element.style.top = (element.offsetTop - pos2) + 'px';
+      element.style.right = '';
+      element.style.left = (element.offsetLeft - pos1) + 'px';
+    };
+  };
 }
 
-// ==================== DETECÇÃO INTELIGENTE ====================
+// ==================== DETECÇÃO MELHORADA (MANTIDA) ====================
 function detectFieldType(field) {
   const name = (field.name || '').toLowerCase();
   const id = (field.id || '').toLowerCase();
   const placeholder = (field.placeholder || '').toLowerCase();
   const type = (field.type || 'text').toLowerCase();
   const autocomplete = (field.getAttribute('autocomplete') || '').toLowerCase();
+  const ariaLabel = (field.getAttribute('aria-label') || '').toLowerCase();
   
   let labelText = '';
   if (field.id) {
@@ -448,20 +491,20 @@ function detectFieldType(field) {
   const parentLabel = field.closest('label');
   if (parentLabel) labelText += ' ' + parentLabel.textContent.toLowerCase();
   
-  const combined = `${name} ${id} ${placeholder} ${autocomplete} ${labelText}`;
+  const combined = `${name} ${id} ${placeholder} ${autocomplete} ${labelText} ${ariaLabel}`;
   
-  if (type === 'email' || /email|e-mail/.test(combined)) return 'email';
-  if (type === 'tel' || /phone|tel|celular|mobile/.test(combined)) return 'phone';
-  if (type === 'date' || /birth|nascimento|bday|date/.test(combined)) return 'date';
-  if (/first.*name|given.*name|nome.*próprio/.test(combined)) return 'firstName';
-  if (/last.*name|surname|sobrenome|family.*name/.test(combined)) return 'lastName';
-  if (/full.*name|nome.*completo/.test(combined)) return 'fullName';
-  if (/address|street|rua/.test(combined)) return 'address';
-  if (/city|cidade/.test(combined)) return 'city';
-  if (/state|estado/.test(combined)) return 'state';
-  if (/zip|postal|cep/.test(combined)) return 'zip';
-  if (/country|país/.test(combined)) return 'country';
-  if (/company|employer|empresa/.test(combined)) return 'company';
+  if (type === 'email' || autocomplete.includes('email') || /\bemail\b|e-mail|correo/i.test(combined)) return 'email';
+  if (type === 'tel' || autocomplete.includes('tel') || /\bphone\b|tel|celular|mobile/i.test(combined)) return 'phone';
+  if (type === 'date' || autocomplete.includes('bday') || /birth|nascimento|bday|date.*birth/i.test(combined)) return 'date';
+  if (autocomplete.includes('given') || /first.*name|given.*name|nome.*próprio/i.test(combined)) return 'firstName';
+  if (autocomplete.includes('family') || /last.*name|surname|sobrenome|family/i.test(combined)) return 'lastName';
+  if (autocomplete === 'name' || /full.*name|nome.*completo/i.test(combined)) return 'fullName';
+  if (autocomplete.includes('address') || /address|street|rua/i.test(combined)) return 'address';
+  if (autocomplete.includes('city') || /\bcity\b|cidade/i.test(combined)) return 'city';
+  if (autocomplete.includes('state') || /\bstate\b|estado/i.test(combined)) return 'state';
+  if (autocomplete.includes('postal') || /zip|postal|cep/i.test(combined)) return 'zip';
+  if (autocomplete.includes('country') || /country|país/i.test(combined)) return 'country';
+  if (autocomplete.includes('organization') || /company|employer|empresa/i.test(combined)) return 'company';
   
   return 'text';
 }
@@ -470,122 +513,139 @@ function generateValue(fieldType) {
   const firstName = random(FICTIONAL_DATA.firstNames);
   const lastName = random(FICTIONAL_DATA.lastNames);
   
-  switch (fieldType) {
-    case 'email': return `${firstName.toLowerCase()}.${lastName.toLowerCase()}@swordhealth.com`;
-    case 'phone': return `(${randomNum(200,999)}) ${randomNum(200,999)}-${randomNum(1000,9999)}`;
-    case 'date': return '11/11/2000';
-    case 'firstName': return firstName;
-    case 'lastName': return lastName;
-    case 'fullName': return `${firstName} ${lastName}`;
-    case 'address': return `${randomNum(100,9999)} Main Street`;
-    case 'city': return random(FICTIONAL_DATA.cities);
-    case 'state': return random(FICTIONAL_DATA.states);
-    case 'zip': return String(randomNum(10000, 99999));
-    case 'country': return 'United States';
-    case 'company': return random(FICTIONAL_DATA.companies);
-    default: return `${firstName} ${lastName}`;
-  }
+  const values = {
+    'email': `${firstName.toLowerCase()}.${lastName.toLowerCase()}@swordhealth.com`,
+    'phone': `(${randomNum(200,999)}) ${randomNum(200,999)}-${randomNum(1000,9999)}`,
+    'date': '11/11/2000',
+    'firstName': firstName,
+    'lastName': lastName,
+    'fullName': `${firstName} ${lastName}`,
+    'address': `${randomNum(100,9999)} Main Street`,
+    'city': random(FICTIONAL_DATA.cities),
+    'state': random(FICTIONAL_DATA.states),
+    'zip': String(randomNum(10000, 99999)),
+    'country': 'United States',
+    'company': random(FICTIONAL_DATA.companies),
+    'text': `${firstName} ${lastName}`
+  };
+  
+  return values[fieldType] || values['text'];
 }
 
 // ==================== AUTOMAÇÃO PRINCIPAL ====================
-async function automateForm() {
-  console.log('🤖 Iniciando automação estilo Selenium...');
+async function runPlaywrightAutomation() {
+  console.log('🤖 === PLAYWRIGHT AUTOMATION START ===');
   
-  const elements = document.querySelectorAll('input, select, textarea');
+  const allElements = document.querySelectorAll('input, select, textarea');
+  console.log(`📊 Total elements: ${allElements.length}`);
+  
   let filled = 0;
   
-  for (const element of elements) {
+  for (const element of allElements) {
     if (!isRunning) break;
     
     const type = element.type?.toLowerCase();
     const tag = element.tagName;
     
+    // Pular inúteis
     if (type === 'hidden' || type === 'submit' || type === 'button' || element.disabled) continue;
     
     try {
-      // CHECKBOX
-      if (type === 'checkbox' && !element.checked) {
-        humanClick(element);
+      // CHECKBOX (SEMPRE MARCAR)
+      if (type === 'checkbox') {
+        await playwrightCheck(element);
         filled++;
-        console.log('✓ Checkbox marcado');
         await new Promise(r => setTimeout(r, fillSpeed));
         continue;
       }
       
-      // RADIO
+      // RADIO (MARCAR PRIMEIRO DO GRUPO)
       if (type === 'radio') {
         const name = element.name;
-        if (!document.querySelector(`input[type="radio"][name="${name}"]:checked`)) {
-          humanClick(element);
+        const firstRadio = document.querySelector(`input[type="radio"][name="${name}"]`);
+        if (firstRadio && !document.querySelector(`input[type="radio"][name="${name}"]:checked`)) {
+          await playwrightClick(firstRadio);
           filled++;
-          console.log('✓ Radio selecionado');
           await new Promise(r => setTimeout(r, fillSpeed));
         }
         continue;
       }
       
-      // SELECT
-      if (tag === 'SELECT' && element.options.length > 1) {
-        element.selectedIndex = 1;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-        filled++;
-        console.log(`✓ Select: ${element.options[1].text}`);
-        await new Promise(r => setTimeout(r, fillSpeed));
+      // SELECT (PRIMEIRA OPÇÃO)
+      if (tag === 'SELECT') {
+        if (element.options.length > 1) {
+          await playwrightSelectOption(element, 1);
+          filled++;
+          await new Promise(r => setTimeout(r, fillSpeed));
+        }
         continue;
       }
       
-      // INPUT/TEXTAREA
+      // Pular se já preenchido
       if (element.value && element.value.trim() !== '') continue;
       
+      // INPUT/TEXTAREA
       const fieldType = detectFieldType(element);
       let value = generateValue(fieldType);
       
+      // Para type="date" usar ISO
       if (type === 'date' && fieldType === 'date') {
         value = '2000-11-11';
       }
       
-      // Usar técnica de digitação humana
-      await humanType(element, value, 30);
-      
-      // Também usar técnica React por segurança
-      setReactValue(element, value);
-      
+      await playwrightFill(element, value);
       filled++;
-      console.log(`✓ ${fieldType}: ${value}`);
       await new Promise(r => setTimeout(r, fillSpeed));
       
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('❌ Error:', error);
     }
   }
   
-  console.log(`✅ Automação concluída: ${filled} campos`);
+  console.log(`✅ === AUTOMATION COMPLETE: ${filled} fields filled ===`);
   
+  // Aguardar
   await new Promise(r => setTimeout(r, 1000));
   
-  // Procurar e clicar botão
-  const buttons = document.querySelectorAll('button, input[type="submit"], a');
+  // Procurar botão CONTINUAR
+  console.log('🔍 Looking for Continue button...');
+  const buttons = document.querySelectorAll('button, input[type="submit"], a, [role="button"]');
+  
   for (const btn of buttons) {
-    const text = (btn.textContent || btn.value || '').toLowerCase();
-    if (/next|continue|submit|continuar|seguinte|enviar|save|avançar/.test(text)) {
-      console.log(`🔘 Clicando: "${btn.textContent || btn.value}"`);
-      humanClick(btn);
+    const text = (btn.textContent || btn.value || btn.getAttribute('aria-label') || '').toLowerCase();
+    
+    if (/next|continue|submit|continuar|seguinte|enviar|save|avançar|prosseguir/i.test(text)) {
+      console.log(`🔘 Found button: "${btn.textContent || btn.value}"`);
+      await playwrightClick(btn);
+      
+      // Aguardar página carregar
       await new Promise(r => setTimeout(r, 2500));
-      if (isRunning) automateForm();
+      
+      // Continuar preenchendo
+      if (isRunning) {
+        runPlaywrightAutomation();
+      }
       return;
     }
   }
+  
+  console.log('⚠️ No Continue button found');
 }
 
 // ==================== INICIALIZAÇÃO ====================
 chrome.runtime.onMessage.addListener((request) => {
   if (request.action === 'start') {
     createFloatingUI();
-    const startBtn = floatingUI?.querySelector('#sff-start-btn');
-    if (startBtn) startBtn.click();
+    setTimeout(() => {
+      const startBtn = floatingUI?.querySelector('#sff-start-btn');
+      if (startBtn) startBtn.click();
+    }, 100);
+  } else if (request.action === 'stop') {
+    isRunning = false;
   }
 });
 
+// Auto-criar UI
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => setTimeout(createFloatingUI, 500));
 } else {
